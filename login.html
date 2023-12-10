@@ -38,6 +38,7 @@
       border-radius: 0.2em;
       padding: 0.3em 0.2em 0.05em;
       font-size: 160%;
+
     }
 
     input[type="text"] {
@@ -60,6 +61,10 @@
       margin-left: 0.2em;
     }
 
+    div {
+      margin: auto;
+    }
+
     @media (prefers-color-scheme: dark) {
 
       html,
@@ -79,9 +84,11 @@
 <body>
   <h1>Just Auth!</h1>
   <form method="post" action="/login">
-    <input type="password" name="password" autocomplete="off" value="" autofocus="" placeholder="Password" />
-    <input type="hidden" name="redirect_path" value="{redirect_path}" />
-    <input type="submit" value="Log in" />
+    <div>
+      <input type="password" name="password" autocomplete="off" value="" autofocus="" placeholder="Password" />
+      <input type="hidden" name="redirect_path" value="{redirect_path}" />
+      <input type="submit" value="Log in" />
+    </div>
   </form>
 </body>
 
