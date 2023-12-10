@@ -9,15 +9,24 @@ A minimal reverse proxy server with cookie based authentication.
 2. Run the server
     ```
     cd just-auth
-    ./just-auth.py --port 8486
+    ./just-auth.py
     ```
 
-## Configuration
-For now, there isn't really configuration.
-You just have to edit the constants PASSWORD, SALT and PROXY_URL in the script.
-It will only work with http, not https.
-The idea here is you'd put this between a reverse-proxying web server like nginx and your application.
-It contains a simple login form, and sets a cookie to track logged in status
+## Setup
+
+The idea here is you'd put this between a reverse-proxy capable web server like nginx and your application.
+It contains a simple login form, and sets a cookie to track logged in status.
+The url you proxy to needs to be http, not https.
+It is expected that the web server in front of Just Auth will provide https.
+
+### Environment Variables
+
+| Variable | Description | Default |
+| -------- | ----------- | ------- |
+| PASSWORD | The password to use for authentication | super secret password |
+| SALT | The salt to use for hashing the password | pretty secret salt |
+| PROXY_TO_URL | The url to proxy to | http://localhost:8000 |
+| PORT | The port to listen on | 8486
 
 ## FAQ
 Q. Why not just use http authentication?

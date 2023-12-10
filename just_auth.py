@@ -1,61 +1,68 @@
 #!/usr/bin/python3
-import argparse
 import hashlib
 import http.server
+import os
 
-from http.client import HTTPConnection, HTTPSConnection
-from urllib.request import Request, urlopen
-from urllib.parse import parse_qs, urlparse
+from http.client import HTTPConnection
+from urllib.parse import quote, parse_qs, urlparse
 
-
-PASSWORD = "super secret password"
-SALT = "pretty secret salt"
-PROXY_TO_URL = "http://localhost:8000"
+PASSWORD = os.environ.get("JUST_AUTH_PASSWORD", "super secret password")
+SALT = os.environ.get("JUST_AUTH_SALT", "pretty secret salt")
+PROXY_TO_URL = os.environ.get("JUST_AUTH_PROXY_TO_URL", "http://localhost:8000")
+PORT = int(os.environ.get("JUST_AUTH_PORT", 8486))
 
 
 class JustAuthHandler(http.server.BaseHTTPRequestHandler):
     # pylint: disable=invalid-name
     def do_GET(self):
-        path = self.path
-
         if self.has_correct_auth_cookie():
             self.proxy_request("GET")
-        elif path == "/login":
-            self.show_file("login.html", "text/html")
+            return
+
+        path = self.path
+        query_string_dict = {}
+        if "?" in path:
+            path, query_string = path.split("?", 1)
+            query_string_dict = parse_qs(query_string)
+
+        if path == "/login":
+            self.show_login_form(query_string_dict.get("redirect_path", "")[0])
         else:
-            self.redirect("/login")
+            self.redirect_to_login()
 
     # pylint: disable=invalid-name
     def do_POST(self):
-        path = self.path
-
         if self.has_correct_auth_cookie():
             self.proxy_request("POST")
-        elif path == "/login":
+            return
+
+        if self.path == "/login":
             self.process_login()
-        else:
-            self.redirect("/login")
+            return
+
+        self.redirect_to_login()
 
     # pylint: disable=invalid-name
     def do_PUT(self):
-        if self.has_correct_auth_cookie():
-            self.proxy_request("PUT")
-        else:
-            self.redirect("/login")
+        self.proxy_or_redirect_to_login("PUT")
 
     # pylint: disable=invalid-name
     def do_PATCH(self):
-        if self.has_correct_auth_cookie():
-            self.proxy_request("PATCH")
-        else:
-            self.redirect("/login")
+        self.proxy_or_redirect_to_login("PATCH")
 
     # pylint: disable=invalid-name
     def do_DELETE(self):
+        self.proxy_or_redirect_to_login("DELETE")
+
+    def proxy_or_redirect_to_login(self, method):
         if self.has_correct_auth_cookie():
-            self.proxy_request("DELETE")
-        else:
-            self.redirect("/login")
+            self.proxy_request(method)
+            return
+
+        self.redirect_to_login()
+
+    def redirect_to_login(self):
+        self.redirect(f"/login?redirect_path={quote(self.path)}")
 
     def proxy_request(self, method):
         parsed_url = urlparse(PROXY_TO_URL)
@@ -70,7 +77,12 @@ class JustAuthHandler(http.server.BaseHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length) if content_length else None
 
-        conn.request(method, path, body=body, headers=headers)
+        try:
+            conn.request(method, path, body=body, headers=headers)
+        except ConnectionError:
+            self.show_text("Gateway Connection error", status_code=502)
+            return
+
         response = conn.getresponse()
 
         self.send_response(response.status)
@@ -82,10 +94,12 @@ class JustAuthHandler(http.server.BaseHTTPRequestHandler):
 
         conn.close()
 
-    def show_file(self, path, content_type):
-        with open(path, "r", encoding="utf-8") as f:
+    def show_login_form(self, redirect_path):
+        with open("login.html", "r", encoding="utf-8") as f:
             content = f.read()
-        self.show_text(content, content_type)
+
+        content = content.replace("{redirect_path}", redirect_path)
+        self.show_text(content, "text/html")
 
     def process_login(self):
         if self.headers["Content-Type"] != "application/x-www-form-urlencoded":
@@ -100,19 +114,20 @@ class JustAuthHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if post_data["password"][0] != PASSWORD:
-            print("wrong password", PASSWORD, "!=", post_data["password"][0])
-            self.redirect("/login")
+            self.show_text("Incorrect password", status_code=400)
             return
 
         token = hashlib.sha256((PASSWORD + SALT).encode("utf-8")).hexdigest()
-
-        redirect_url = "/"
-        if "redirect_url" in post_data:
-            redirect_url = post_data["redirect_url"][0]
+        redirect_path = "/"
+        if "redirect_path" in post_data:
+            redirect_path = post_data["redirect_path"][0]
+        if not redirect_path.startswith("/"):
+            redirect_path = "/"
 
         self.send_response(302)
-        self.send_header("Set-Cookie", f"just-auth-token={token}")
-        self.send_header("Location", redirect_url)
+
+        self.send_header("Set-Cookie", f"just-auth-token={token}; Max-Age={7*24*60*60}")
+        self.send_header("Location", redirect_path)
         self.end_headers()
 
     def redirect(self, url):
@@ -144,12 +159,6 @@ class JustAuthHandler(http.server.BaseHTTPRequestHandler):
         return False
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--port", help="port to listen on", type=int, default=8486, required=False
-)
-args = parser.parse_args()
-
-with http.server.HTTPServer(("", args.port), JustAuthHandler) as httpd:
-    print("serving at port", args.port)
+with http.server.HTTPServer(("", PORT), JustAuthHandler) as httpd:
+    print("serving at port", PORT)
     httpd.serve_forever()
