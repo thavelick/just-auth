@@ -23,10 +23,10 @@ It is expected that the web server in front of Just Auth will provide https.
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
-| PASSWORD | The password to use for authentication | super secret password |
-| SALT | The salt to use for hashing the password | pretty secret salt |
-| PROXY_TO_URL | The url to proxy to | http://localhost:8000 |
-| PORT | The port to listen on | 8486
+| JUST_AUTH_PASSWORD | The password to use for authentication | super secret password |
+| JUST_AUTH_SALT | The salt to use for hashing the password | pretty secret salt |
+| JUST_AUTH_PROXY_TO_URL | The url to proxy to | http://localhost:8000 |
+| JUST_AUTH_PORT | The port to listen on | 8486
 
 ### A realistic example
 
