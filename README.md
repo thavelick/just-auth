@@ -28,6 +28,51 @@ It is expected that the web server in front of Just Auth will provide https.
 | PROXY_TO_URL | The url to proxy to | http://localhost:8000 |
 | PORT | The port to listen on | 8486
 
+### A realistic example
+
+Let's say you want to put a site running with an nginx reverse proxy behind Just Auth. Assume before you begin that the site is already running on port 7777 with the following nginx config:
+
+```
+server {
+	server_name bangs.my-site.xyz;
+	location / {
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host $host;
+		proxy_pass http://localhost:7777;
+	}
+	listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/my-site.xyz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/my-site.xyz/privkey.pem;
+}
+
+server {
+    if ($host = bangs.my-site.xyz) {
+        return 301 https://$host$request_uri;
+    }
+	server_name bangs.my-site.xyz;
+    listen 80;
+    return 404;
+}
+```
+
+To make this run behind just auth you'd
+
+1. Instal just auth
+2. Run just auth with
+    ```
+    JUST_AUTH_PASSWORD=your-pw JUST_AUTH_SALT=XdQ8KNyf2htjgsLqsY2AJ JUST_AUTH_PROXY_TO_URL=http://localhost:7777 PORT=7778 ./just-auth.py
+    ```
+3. Update the nginx config with to proxy to the just auth port instead:
+    ```
+    proxy_pass http://localhost:7778;
+    ```
+4. Restart nginx
+    ```
+    sudo systemctl restart nginx
+    ```
+5. Visit the site at https://bangs.my-site.xyz
+6. You'll now see a login form.
+    Enter the password you specified above and you'll be redirected to the site as normal until the cookie expires in a week.
 ## FAQ
 Q. Why not just use http authentication?
 
