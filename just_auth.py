@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import hashlib
+import html
 import http.server
 import os
 
@@ -26,7 +27,7 @@ class JustAuthHandler(http.server.BaseHTTPRequestHandler):
             query_string_dict = parse_qs(query_string)
 
         if path == "/login":
-            self.show_login_form(query_string_dict.get("redirect_path", "")[0])
+            self.show_login_form(query_string_dict.get("redirect_path", ["/"])[0])
         else:
             self.redirect_to_login()
 
@@ -98,7 +99,7 @@ class JustAuthHandler(http.server.BaseHTTPRequestHandler):
         with open("login.html", "r", encoding="utf-8") as f:
             content = f.read()
 
-        content = content.replace("{redirect_path}", redirect_path)
+        content = content.replace("{redirect_path}", html.escape(redirect_path))
         self.show_text(content, "text/html")
 
     def process_login(self):
